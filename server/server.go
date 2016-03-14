@@ -68,9 +68,11 @@ func authorize(w http.ResponseWriter, r *http.Request) {
 	res.Kind = req.Kind
 	res.APIVersion = req.APIVersion
 	if ret != nil {
+		log.Printf("allow access to %s\n", req.Spec.User)
 		res.Status.Allowed = false
 		res.Status.Reason = ret.Error()
 	} else {
+		log.Printf("deny access to %s\n", req.Spec.User)
 		res.Status.Allowed = true
 	}
 
