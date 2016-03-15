@@ -68,18 +68,17 @@ func authorize(w http.ResponseWriter, r *http.Request) {
 	res.Kind = req.Kind
 	res.APIVersion = req.APIVersion
 	if ret != nil {
-		log.Printf("allow access to %s\n", req.Spec.User)
+		log.Printf("deny access to %s\n", req.Spec.User)
 		res.Status.Allowed = false
 		res.Status.Reason = ret.Error()
 	} else {
-		log.Printf("deny access to %s\n", req.Spec.User)
+		log.Printf("allow access to %s\n", req.Spec.User)
 		res.Status.Allowed = true
 	}
 
 	// Encode response
 	if err := json.NewEncoder(w).Encode(res); err != nil {
-		// TODO: is this the right way to handle request data
-		// we do not recognize?
+		// TODO: is this the right way to handle request data we do not recognize?
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -111,7 +110,7 @@ func (s *RemoteABACServer) Run() {
 
 	log.Printf("Starting server and listening on %s\n", s.Address)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", authorize)
+	mux.HandleFunc("/authorize", authorize)
 	http.ListenAndServeTLS(s.Address, s.TLSCertFile, s.TLSPrivateKey, mux)
 }
 
