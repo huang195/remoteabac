@@ -3,12 +3,18 @@ package server
 import (
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
+	"time"
 
+	etcd "github.com/coreos/etcd/client"
+	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/apis/authorization/v1beta1"
 	"k8s.io/kubernetes/pkg/auth/authorizer"
 	"k8s.io/kubernetes/pkg/auth/authorizer/abac"
@@ -96,14 +102,16 @@ func (s *RemoteABACServer) Run() {
 		for {
 			select {
 			case <-sigs:
-				auth, _ = abac.NewFromFile(s.PolicyFile)
+				policyFile := s.handlePolicyFile(s.PolicyFile)
+				auth, _ = abac.NewFromFile(policyFile)
 				log.Printf("Reloading policy file from %s\n", s.PolicyFile)
 			}
 		}
 	}()
 
 	var err error
-	auth, err = abac.NewFromFile(s.PolicyFile)
+	policyFile := s.handlePolicyFile(s.PolicyFile)
+	auth, err = abac.NewFromFile(policyFile)
 	if err != nil {
 		log.Fatalf("Error reading policy file from %s: %v", s.PolicyFile, err)
 	}
@@ -112,6 +120,91 @@ func (s *RemoteABACServer) Run() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/authorize", authorize)
 	http.ListenAndServeTLS(s.Address, s.TLSCertFile, s.TLSPrivateKey, mux)
+}
+
+func (s *RemoteABACServer) handlePolicyFile(policyFile string) string {
+
+	// policyFile can be in different formats to specify their storage medium
+	// In the most common case, where it is stored as a local file, one can specify
+	//
+	// --authorization-policy-file=myfile
+	//
+	// In the case of etcd backend, one can specify
+	//
+	// --authorization-policy-file=etcd@http://10.10.0.1:2379/path/to/policy/file
+	//
+	// One can also specify multiple etcd backends, e.g.,
+	//
+	// --authorization-policy-file=etcd@http://10.10.0.1:2379/path/to/policy/file,\
+	//   http://10.10.0.2:2379/path/to/policy/file,\
+	//   http://10.10.0.3:2379/path/to/policy/file
+	//
+
+	arr := strings.Split(policyFile, "@")
+	if len(arr) == 1 {
+		// This is a local file
+		log.Printf("Loading policy file from a local file: %s\n", policyFile)
+		return policyFile
+	} else if len(arr) > 2 {
+		log.Fatalf("Policy file is not correctly specified: %s\n", policyFile)
+	}
+
+	storageType := strings.ToLower(arr[0])
+	policyFile = arr[1]
+
+	switch storageType {
+	case "etcd":
+		log.Printf("Loading policy file from etcd\n")
+
+		serverList := []string{}
+		path := ""
+
+		re := regexp.MustCompile(`(http[s]?://[a-zA-Z0-9\.]+:[0-9]+)/(.+)`)
+		locations := strings.Split(policyFile, ",")
+		for _, location := range locations {
+			result := re.FindStringSubmatch(location)
+			if result == nil || len(result) != 3 {
+				log.Fatalf("etcd location is not recognized: %s\n", location)
+			}
+
+			serverList = append(serverList, result[1])
+			if path == "" {
+				path = result[2]
+			} else if path != result[2] {
+				log.Fatalf("All etcd path should be the same, %s does not match others\n", result[2])
+			}
+		}
+
+		path = "/" + path
+		log.Printf("serverList: %s, path: %s\n", serverList, path)
+
+		cfg := etcd.Config{
+			Endpoints:               serverList,
+			Transport:               etcd.DefaultTransport,
+			HeaderTimeoutPerRequest: time.Second,
+		}
+
+		client, err := etcd.New(cfg)
+		if err != nil {
+			log.Fatalf("Failed to create etcd connection: %v\n", err)
+		}
+
+		kapi := etcd.NewKeysAPI(client)
+		if resp, err := kapi.Get(context.Background(), path, nil); err != nil {
+			log.Fatalf("Cannot GET %s from etcd server: %v\n", path, err)
+		} else {
+			log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
+			fileName := "/tmp/abac-policy"
+			ioutil.WriteFile(fileName, []byte(resp.Node.Value), 0644)
+			return fileName
+		}
+
+	default:
+		log.Fatalf("Storage type %s is not currently supported\n", storageType)
+	}
+
+	// Should not reach here
+	return ""
 }
 
 func (s *RemoteABACServer) AddFlags(fs *flag.FlagSet) {

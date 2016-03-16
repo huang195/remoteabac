@@ -12,6 +12,21 @@
 			"Rev": "4e924c79e32959414e8c7aaed6607176d8ee79c3"
 		},
 		{
+			"ImportPath": "github.com/coreos/etcd/client",
+			"Comment": "v2.3.0-alpha.1-291-gbae053f",
+			"Rev": "bae053f57fff5b7541d750510243c7e6920e3445"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/pkg/pathutil",
+			"Comment": "v2.3.0-alpha.1-291-gbae053f",
+			"Rev": "bae053f57fff5b7541d750510243c7e6920e3445"
+		},
+		{
+			"ImportPath": "github.com/coreos/etcd/pkg/types",
+			"Comment": "v2.3.0-alpha.1-291-gbae053f",
+			"Rev": "bae053f57fff5b7541d750510243c7e6920e3445"
+		},
+		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
 			"Rev": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d"
 		},
