@@ -102,7 +102,7 @@ func (s *RemoteABACServer) Run() {
 		for {
 			select {
 			case <-sigs:
-				policyFile := s.handlePolicyFile(s.PolicyFile)
+				policyFile := handlePolicyFile(s.PolicyFile)
 				auth, _ = abac.NewFromFile(policyFile)
 				log.Printf("Reloading policy file from %s\n", s.PolicyFile)
 			}
@@ -110,7 +110,7 @@ func (s *RemoteABACServer) Run() {
 	}()
 
 	var err error
-	policyFile := s.handlePolicyFile(s.PolicyFile)
+	policyFile := handlePolicyFile(s.PolicyFile)
 	auth, err = abac.NewFromFile(policyFile)
 	if err != nil {
 		log.Fatalf("Error reading policy file from %s: %v", s.PolicyFile, err)
@@ -122,7 +122,7 @@ func (s *RemoteABACServer) Run() {
 	http.ListenAndServeTLS(s.Address, s.TLSCertFile, s.TLSPrivateKey, mux)
 }
 
-func (s *RemoteABACServer) handlePolicyFile(policyFile string) string {
+func handlePolicyFile(policyFile string) string {
 
 	// policyFile can be in different formats to specify their storage medium
 	// In the most common case, where it is stored as a local file, one can specify
