@@ -26,7 +26,9 @@ import (
 var auth authorizer.Authorizer
 
 const (
-	defaultAddress string = ":8444"
+	defaultAddress   string = ":8444"
+	tmpFile                 = "/tmp/abac-policy"
+	retryFailureTime        = 10 * time.Second
 )
 
 type RemoteABACServer struct {
@@ -194,8 +196,26 @@ func handlePolicyFile(policyFile string) string {
 			log.Fatalf("Cannot GET %s from etcd server: %v\n", path, err)
 		} else {
 			log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
-			fileName := "/tmp/abac-policy"
+			fileName := tmpFile
 			ioutil.WriteFile(fileName, []byte(resp.Node.Value), 0644)
+
+			go func() {
+				watcher := kapi.Watcher(path, nil)
+				for {
+					resp, err := watcher.Next(context.Background())
+					if err != nil {
+						log.Printf("Encountered error while watching for etcd: %v\n", err)
+						time.Sleep(retryFailureTime)
+					} else {
+						log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
+						fileName := tmpFile
+						ioutil.WriteFile(fileName, []byte(resp.Node.Value), 0644)
+						auth, _ = abac.NewFromFile(fileName)
+						log.Printf("Reloading policy file from %s\n", fileName)
+					}
+				}
+			}()
+
 			return fileName
 		}
 
