@@ -22,7 +22,7 @@ import (
 )
 
 // Global abac authorizor that can be reloaded based on
-// receiving a SIGUSR1 signal
+// receiving a SIGUSR1 signal or etcd node change
 var auth authorizer.Authorizer
 
 const (
@@ -38,7 +38,7 @@ type RemoteABACServer struct {
 	TLSPrivateKey string
 }
 
-func NewServer() *RemoteABACServer {
+func New() *RemoteABACServer {
 	return &RemoteABACServer{
 		Address: defaultAddress,
 	}
@@ -156,7 +156,7 @@ func handlePolicyFile(policyFile string) string {
 
 	switch storageType {
 	case "etcd":
-		log.Printf("Loading policy file from etcd\n")
+		log.Printf("Loading policy file from etcd: %s\n", policyFile)
 
 		serverList := []string{}
 		path := ""
@@ -195,7 +195,7 @@ func handlePolicyFile(policyFile string) string {
 		if resp, err := kapi.Get(context.Background(), path, nil); err != nil {
 			log.Fatalf("Cannot GET %s from etcd server: %v\n", path, err)
 		} else {
-			log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
+			//log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
 			fileName := tmpFile
 			ioutil.WriteFile(fileName, []byte(resp.Node.Value), 0644)
 
@@ -207,7 +207,7 @@ func handlePolicyFile(policyFile string) string {
 						log.Printf("Encountered error while watching for etcd: %v\n", err)
 						time.Sleep(retryFailureTime)
 					} else {
-						log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
+						//log.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
 						fileName := tmpFile
 						ioutil.WriteFile(fileName, []byte(resp.Node.Value), 0644)
 						auth, _ = abac.NewFromFile(fileName)
