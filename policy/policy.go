@@ -164,5 +164,5 @@ func (p *Policy) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&p.Namespace, "namespace", p.Namespace, "Namespace of the user.")
 	fs.BoolVar(&p.Privileged, "privileged", p.Privileged, "Is user a privileged user")
 	fs.BoolVar(&p.ReadOnly, "readonly", p.ReadOnly, "Does user have readonly access to the namespace")
-	fs.StringVar(&p.ReqType, "type", p.ReqType, "Type of request: add, delete.")
+	fs.StringVar(&p.ReqType, "type", p.ReqType, "Type of request: add, delete, show.")
 }

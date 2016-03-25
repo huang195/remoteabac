@@ -17,3 +17,4 @@
 - `$GOBIN/ruser --authorization-policy-file=etcd@http://<ip>:<port>/abac-policy --type=add --user=alice --namespace=alice`
 - `$GOBIN/ruser --authorization-policy-file=etcd@http://<ip>:<port>/abac-policy --type=add --user=max --privileged=true`
 - `$GOBIN/ruser --authorization-policy-file=etcd@http://<ip>:<port>/abac-policy --type=delete --user=alice`
+- `$GOBIN/ruser --authorization-policy-file=etcd@http://<ip>:<port>/abac-policy --type=show`
