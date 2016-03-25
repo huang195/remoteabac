@@ -107,6 +107,7 @@ func (p *Policy) addUser(policy string) (string, error) {
 	po.Spec.Resource = "*"
 	po.Spec.APIGroup = "*"
 	if p.Privileged {
+		po.Spec.Namespace = "*"
 		po1 := abac.Policy{}
 		po1.APIVersion = "abac.authorization.kubernetes.io/v1beta1"
 		po1.Kind = "Policy"
