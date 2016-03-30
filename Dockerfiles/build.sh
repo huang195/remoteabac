@@ -4,7 +4,11 @@
 
 IMAGE_NAME=haih/remoteabac
 
+godep go install ../cmd/remoteabac/remoteabac.go
+godep go install ../cmd/ruser/ruser.go
+
 cp $GOPATH/bin/remoteabac .
+cp $GOPATH/bin/ruser .
 
 sudo docker build -f Dockerfile -t $IMAGE_NAME --no-cache .
 
