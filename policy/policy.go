@@ -17,7 +17,6 @@ type Policy struct {
 	User       string // e.g., alice
 	Namespace  string // e.g., alice_namespace
 	Privileged bool   // e.g., false
-	ReadOnly   bool   // e.g., false
 	ReqType    string // e.g., add, delete
 	RW         ReaderWriter
 }
@@ -96,37 +95,68 @@ func (p *Policy) ProcessRequest() error {
 	return fmt.Errorf("Request type not specified or not recognized: \"%s\"\n", p.ReqType)
 }
 
+var readWriteResources = []string{"pods", "deployments", "replicasets", "replicationcontrollers", "secrets", "services"}
+var readOnlyResources = []string{"events", "quota", "limitranges", "resourcequotas"}
+
 // Assumes p.User does not exist in policy
 func (p *Policy) addUser(policy string) (string, error) {
 	ret := policy
-	po := abac.Policy{}
-	po.APIVersion = "abac.authorization.kubernetes.io/v1beta1"
-	po.Kind = "Policy"
-	po.Spec.User = p.User
-	po.Spec.Namespace = p.Namespace
-	po.Spec.Resource = "*"
-	po.Spec.APIGroup = "*"
+
 	if p.Privileged {
+		// setup resource access
+		po := abac.Policy{}
+		po.APIVersion = "abac.authorization.kubernetes.io/v1beta1"
+		po.Kind = "Policy"
+		po.Spec.User = p.User
 		po.Spec.Namespace = "*"
+		po.Spec.Resource = "*"
+		po.Spec.APIGroup = "*"
+		b := new(bytes.Buffer)
+		if err := json.NewEncoder(b).Encode(po); err != nil {
+			return "", err
+		}
+		ret = ret + b.String()
+
+		// setup non-resource access
 		po1 := abac.Policy{}
 		po1.APIVersion = "abac.authorization.kubernetes.io/v1beta1"
 		po1.Kind = "Policy"
 		po1.Spec.User = p.User
 		po1.Spec.NonResourcePath = "*"
-		b := new(bytes.Buffer)
+		b = new(bytes.Buffer)
 		if err := json.NewEncoder(b).Encode(po1); err != nil {
 			return "", err
 		}
 		ret = ret + b.String()
-	} else if p.ReadOnly {
+	} else {
+		// setup common fields
+		po := abac.Policy{}
+		po.APIVersion = "abac.authorization.kubernetes.io/v1beta1"
+		po.Kind = "Policy"
+		po.Spec.User = p.User
+		po.Spec.Namespace = p.Namespace
+		po.Spec.APIGroup = "*"
+
+		for _, rw := range readWriteResources {
+			po.Spec.Resource = rw
+			b := new(bytes.Buffer)
+			if err := json.NewEncoder(b).Encode(po); err != nil {
+				return "", err
+			}
+			ret = ret + b.String()
+		}
+
 		po.Spec.Readonly = true
+		for _, ro := range readOnlyResources {
+			po.Spec.Resource = ro
+			b := new(bytes.Buffer)
+			if err := json.NewEncoder(b).Encode(po); err != nil {
+				return "", err
+			}
+			ret = ret + b.String()
+		}
 	}
-	b := new(bytes.Buffer)
-	if err := json.NewEncoder(b).Encode(po); err != nil {
-		return "", err
-	}
-	ret = ret + b.String()
-	//log.Printf("%v", ret)
+
 	return ret, nil
 }
 
@@ -163,6 +193,5 @@ func (p *Policy) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&p.User, "user", p.User, "User for the request.")
 	fs.StringVar(&p.Namespace, "namespace", p.Namespace, "Namespace of the user.")
 	fs.BoolVar(&p.Privileged, "privileged", p.Privileged, "Is user a privileged user")
-	fs.BoolVar(&p.ReadOnly, "readonly", p.ReadOnly, "Does user have readonly access to the namespace")
 	fs.StringVar(&p.ReqType, "type", p.ReqType, "Type of request: add, delete, show.")
 }
